@@ -76,7 +76,7 @@ struct Pool {
 };
 
 // ============================================================================
-// ExpandingQueue Implementation ==============================================
+// Expanding Queue ============================================================
 
 struct ExpandingQueueNode {
   ExpandingQueueNode* next;
@@ -129,6 +129,107 @@ struct ExpandingQueue {
 
       // free the queue node front points to;
       ExpandingQueueNode* temp_ptr = front->next;
+      pool->Free(front);
+      front = temp_ptr;
+    }
+    return temp;
+  }
+};
+
+// ============================================================================
+// Expanding Priority Queue (uses same Pool allocator) ========================
+
+struct Item {
+  int item = 0;
+  float priority = 0.0f;
+};
+
+struct ExpandingPriorityQueueNode {
+  ExpandingPriorityQueueNode* next;
+  static const int num_slots = 4;
+  Item slot[num_slots];
+};
+
+struct ExpandingPriorityQueue {
+  ExpandingPriorityQueueNode* front;
+  int front_offset;
+
+  ExpandingPriorityQueueNode* back;
+  int back_offset;
+
+  ExpandingPriorityQueueNode* insert;
+  int insert_offset;
+
+  Pool* pool;
+
+  ExpandingPriorityQueue(Pool* pool) {
+    this->pool = pool;
+    front = (ExpandingPriorityQueueNode*)pool->Allocate();
+    front_offset = 0;
+    back = front;
+    back_offset = 0;
+    insert = front;
+    insert_offset = 0;
+  }
+
+  bool IsEmpty() {
+    return ((front == back) && (front_offset == back_offset));
+  }
+
+  void Enqueue(int value, float priority) {
+    Item item = { value, priority };
+
+    insert = front;
+    insert_offset = front_offset;
+
+    if (!IsEmpty()) {
+      while (!((insert == back) && (insert_offset == back_offset))) {
+        if (item.priority < insert->slot[insert_offset].priority) {
+          // Found location of enqueue'd item
+
+          // put enqueue'd item in place, pick up old item to move back 
+          Item temp = insert->slot[insert_offset];
+          insert->slot[insert_offset] = item;
+          item = temp;
+        }
+
+        insert_offset += 1;
+        if (insert_offset == insert->num_slots) {
+          insert_offset = 0;
+          insert = insert->next;
+        }
+      }
+    }
+
+    // reached last element, add as if its a regular expanding queue
+    back->slot[back_offset] = item;
+    back_offset += 1;
+    if (back_offset == back->num_slots) {
+      // allocate a new queue node from pool allocator
+      ExpandingPriorityQueueNode* temp = (ExpandingPriorityQueueNode*)pool->Allocate();
+
+      back_offset = 0;
+      back->next = temp;
+      back = temp;
+    }
+
+    // possibly redundant?
+    // insert = front;
+    // insert_offset = front_offset;
+  }
+
+  Item Dequeue() {
+    if (IsEmpty()) {
+      return { -1, -1.0f };
+    }
+
+    Item temp = front->slot[front_offset];
+    front_offset += 1;
+    if (front_offset == front->num_slots) {
+      front_offset = 0;
+
+      // free the queue node front points to;
+      ExpandingPriorityQueueNode* temp_ptr = front->next;
       pool->Free(front);
       front = temp_ptr;
     }
