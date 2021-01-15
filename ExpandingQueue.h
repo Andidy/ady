@@ -77,6 +77,7 @@ struct Pool {
 
 // ============================================================================
 // Expanding Queue ============================================================
+// developed based on wikipedia articles on unrolled_linked_lists and queues
 
 struct ExpandingQueueNode {
   ExpandingQueueNode* next;
@@ -138,6 +139,8 @@ struct ExpandingQueue {
 
 // ============================================================================
 // Expanding Priority Queue (uses same Pool allocator) ========================
+// developed by extending the above expanding queue with a minimum insertion
+// sort
 
 struct Item {
   int item = 0;
